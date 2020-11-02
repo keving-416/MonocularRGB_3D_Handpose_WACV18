@@ -8,6 +8,7 @@ import numpy as np
 import cv2
 import tensorflow as tf
 
+import logging as log
 
 # find connection in the specified sequence, center 29 is in the position 15
 limbSeq = [[0, 1], [0, 5], [0, 9], [0, 13], [0, 17], # palm
@@ -25,6 +26,15 @@ colors = [[255,255,255],
           [0, 255, 0], [0, 255, 60], [0, 255, 120], [0, 255, 180],
           [0, 0, 255], [0, 60, 255], [0, 120, 255], [0, 180, 255],
           [0, 0, 255], [60, 0, 255], [120, 0, 255], [180, 0, 255],]
+
+def debug_print(x0,y0,x1,y1):
+    result_str = "\n>>>>>>>>>>>>>>>>>>>>>>>\n"
+    result_str += "x0: " + str(x0) + "\n"
+    result_str += "y0: " + str(y0) + "\n"
+    result_str += "x1: " + str(x1) + "\n"
+    result_str += "y1: " + str(y1) + "\n"
+    result_str += "<<<<<<<<<<<<<<<<<<<<<<<\n"
+    log.info(result_str)
 
 def peaks_to_hand(peaks, dx,dy):
     hand = []
@@ -50,7 +60,10 @@ def visualize_2dhand_skeleton(canvas, hand, stickwidth = 3, thre=0.1):
             x0 = int(x0)
             x1 = int(x1)
             y0 = int(y0)
-            y1 = int(y1)    
+            y1 = int(y1)
+ 
+            debug_print(x0,y0,x1,y1)
+ 
             cv2.line(canvas,(x0,y0), (x1,y1), colors[pair[1]%len(colors)], thickness=stickwidth,lineType=cv2.LINE_AA)
 
     return canvas

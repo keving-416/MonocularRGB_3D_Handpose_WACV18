@@ -11,6 +11,7 @@ sys.path.append("lib")
 
 import time
 import os
+import glob
 
 import cv2
 import numpy as np
@@ -30,8 +31,16 @@ import PyJointTools as jt
 
 from common import mva19 
 
+import argparse
+import logging as log
 
-def mono_hand_loop(acq, outSize, config, track=False, paused=False, with_renderer=False):
+def dir_path(path):
+    if os.path.isdir(path):
+        return path
+    else:
+        raise argparse.ArgumentTypeError(f,"readable_dir:{path} is not a valid path")
+
+def mono_hand_loop(acq, outSize, config, title, track=False, paused=False, with_renderer=False):
 
     print("Initialize WACV18 3D Pose estimator (IK)...")
     pose_estimator = factory.HandPoseEstimator(config)
@@ -44,7 +53,7 @@ def mono_hand_loop(acq, outSize, config, track=False, paused=False, with_rendere
     estimator = mva19.Estimator(config["model_file"], config["input_layer"], config["output_layer"])
 
     left_hand_model = config["model_left"]
-    started = False
+    started = True
     delay = {True: 0, False: 1}
     ik_ms = est_ms = 0
     p2d = bbox = None
@@ -74,6 +83,7 @@ def mono_hand_loop(acq, outSize, config, track=False, paused=False, with_rendere
         oldKp = np.array(points2d).reshape(-1, 2)
 
         if bbox is None:
+            print("bbox set to default_bbox")
             bbox = config["default_bbox"]
 
         score = -1
@@ -143,10 +153,14 @@ def mono_hand_loop(acq, outSize, config, track=False, paused=False, with_rendere
         viz = np.copy(bgr)
         viz2d = np.zeros_like(bgr)
         if started and result_pose is not None:
+
+            #print(result_pose)
+
             viz2d = mva19.visualize_2dhand_skeleton(viz2d, hand, thre=peaks_thre)
             cv2.imshow("2D CNN estimation",viz2d)
             header = "FPS OPT+VIZ %03d, OPT %03d (CNN %03d, 3D %03d)"%(1/(time.time()-st),1/(est_ms+ik_ms),1.0/est_ms, 1.0/ik_ms) 
-            
+           
+            #print(pose_estimator.model) 
             if with_renderer:
                 hand_visualizer.render(pose_estimator.model, Core.ParamVector(result_pose), clb)
                 mbv_viz = hand_visualizer.getDepth()
@@ -163,12 +177,14 @@ def mono_hand_loop(acq, outSize, config, track=False, paused=False, with_rendere
         
 
 
-        cv2.putText(viz, header, (20, 20), 0, 0.7, (50, 20, 20), 1, cv2.LINE_AA)
+        cv2.putText(viz, header+" "+title, (20, 20), 0, 0.5, (50, 20, 20), 1, cv2.LINE_AA)
         cv2.imshow("3D Hand Model reprojection", viz)
-
+             
         key = cv2.waitKey(delay[paused])
+        """ Delays estimator until key is pressed 
         if key & 255 == ord('p'):
             paused = not paused
+        """
         if key & 255 == ord('q'):
             break
         if key & 255 == ord('r'):
@@ -176,9 +192,16 @@ def mono_hand_loop(acq, outSize, config, track=False, paused=False, with_rendere
             pose_estimator.model.reset_pose()
             bbox = config['default_bbox']
             print("RESETING BBOX",bbox)
+        """
         if key & 255 == ord('s'):
             started = not started
+        """
 
+        if count == 0:
+            print("\n===>Reseting init position for IK<===\n")
+            pose_estimator.model.reset_pose()
+            bbox = config['default_bbox']
+            print("RESETING BBOX",bbox)
 
         count += 1
 
@@ -188,7 +211,7 @@ def mono_hand_loop(acq, outSize, config, track=False, paused=False, with_rendere
 if __name__ == '__main__':
 
     config = {
-        "model": "models/hand_skinned.xml", "model_left": False,
+        "model": "models/hand_skinned.xml", "model_left": True,
         "model_init_pose": [-109.80840809323652, 95.70022984677065, 584.613931114289, 292.3322807284121, -1547.742897973965, -61.60146881490577, 435.33025195547793, 1.5707458637241434, 0.21444030289465843, 0.11033385117688158, 0.021952050059337137, 0.5716581133215294, 0.02969734913698679, 0.03414155945643072, 0.0, 1.1504613679382742, -0.5235922979328, 0.15626331136368257, 0.03656410417088128, 8.59579088582312e-07, 0.35789633949684985, 0.00012514308785717494, 0.005923001258945023, 0.24864102398139007, 0.2518954858979162, 0.0, 3.814694400000002e-13],
         "model_map": IK.ModelAwareBundleAdjuster.HAND_SKINNED_TO_OP_RIGHT_HAND,
 
@@ -202,15 +225,47 @@ if __name__ == '__main__':
         "input_layer": "input_1",
         "output_layer": "k2tfout_0",
         "stride": 4,
-        "boxsize": 224,
+        "boxsize": 224, 
         "peaks_thre": 0.1,
         
         # default bbox for the hand location 
-        "default_bbox": [170,80,300,300],
+        "default_bbox": [170,80,100,100],  # Used to be [170,80,300,300]
     }
-    
-    # NOTE: You can replace the camera id with a video filename. 
-    acq = OpenCVGrabber(0, calib_file="res/calib_webcam_mshd_vga.json")
-    acq.initialize()
-    mono_hand_loop(acq, (640,480), config,  track=True, with_renderer=True)
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-v", "--verbosity", action="count", help="increase output verbosity (e.g., -vv is more than -v)")
+    parser.add_argument("--video", help="input video for 3d handpose tracking")
+    parser.add_argument("-path", type=dir_path, help="input directory with videos for handpose tracking")
+    args = parser.parse_args()
+
+    if args.verbosity:
+        log.basicConfig(format="%(levelname)s: %(message)s", level=log.DEBUG)
+        log.info("Verbose output.")
+    else:
+        log.basicConfig(format="%(levelname)s: %(message)s")
+
+    log.info("This should be verbose.")
+    log.warning("This is a warning.")
+    log.error("This is an error.")
+    
+    # NOTE: You can replace the camera id with a video filename.
+    filename = "test-video.mp4"
+    if args.video:
+        filename = args.video
+        temp = filename.split('/')
+        temp2 = temp[len(temp) - 1]
+        title = temp2.split('.')[0]
+        acq = OpenCVGrabber(filename, calib_file="res/calib_webcam_mshd_vga.json")
+        acq.initialize()
+        mono_hand_loop(acq, (640,480), config, title, track=True, with_renderer=False)
+
+    if args.path:
+        files = glob.glob(args.path + "*")
+
+        for filename in files:
+            temp = filename.split('/')
+            temp2 = temp[len(temp) - 1]
+            title = temp2.split('.')[0]
+            acq = OpenCVGrabber(filename, calib_file="res/calib_webcam_mshd_vga.json")
+            acq.initialize()
+            mono_hand_loop(acq, (640,480), config, title, track=True, with_renderer=False)
