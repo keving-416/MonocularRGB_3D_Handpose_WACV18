@@ -22,13 +22,13 @@ Subsequently we run a pretrained network that estimates the 2D location of hand 
 This work depends on a set (currently) closed source of C++ libraries developed at [CVRL-FORTH](http://www.ics.forth.gr/cvrl). We provide **Ubuntu 16.04 binaries** for these libraries. Follow the instructions [here](lib/README.md) to download them and set your environment properly.
 
 You will need **Python 3.x** to run the scripts.
-The following python libraries are required:
+To install all the necessary python libraries, make sure your pip is up-to-date and run:
 
 ```bash
-sudo pip3 install numpy opencv-python
+pip install -r requirements.txt
 ```
 
-If you use the provided pretrained network for 2D Joint estimation (by Goudis et al) you will also need to istall **tensorflow**.
+If you use the provided pretrained network for 2D Joint estimation (by Goudis et al) you will also need to install **tensorflow**.
 
 ```bash
 pip3 install tensorflow-gpu
@@ -50,6 +50,25 @@ You can use the 3D hand pose estimation with any 2D joint estimator. We provide 
 ### handpose.py
 
 The **handpose.py** script uses the 2D hand joint estimator of [Gouidis et al](http://users.ics.forth.gr/~argyros/mypapers/2019_05_MVA_hand2Dkeypoints.pdf).
+
+A video can be passed an argument as follows:
+```bash
+python3 handpose.py --video path_to_video
+```
+
+A directory of videos can also be passed as an argument as follows:
+```bash
+python3 handpose.py -path path_to_directory_with_videos/
+```
+
+For extra debug messages add -v:
+```bash
+python3 handpose.py --video path_to_video
+```
+or
+```bash
+python3 handpose.py -v -path path_to_directory_with_videos/
+```
 
 ### handpose_simon_backend.py
 
