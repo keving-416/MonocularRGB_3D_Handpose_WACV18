@@ -168,6 +168,7 @@ def mono_hand_loop(acq, outSize, config, title, track=False, paused=False, with_
                 mask = mbv_viz != [0, 0, 0]
                 viz[mask] = mbv_viz[mask]
             else:
+                log.info(result_pose)
                 viz = mva19.visualize_3dhand_skeleton(viz, p2d)
                 pipeline.draw_rect(viz, "Hand", bbox, box_color=(0, 255, 0), text_color=(200, 200, 0))
 
@@ -206,6 +207,16 @@ def mono_hand_loop(acq, outSize, config, title, track=False, paused=False, with_
         count += 1
 
 
+# Sourced from https://stackoverflow.com/a/43357954
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
 if __name__ == '__main__':
@@ -236,6 +247,7 @@ if __name__ == '__main__':
     parser.add_argument("-v", "--verbosity", action="count", help="increase output verbosity (e.g., -vv is more than -v)")
     parser.add_argument("--video", help="input video for 3d handpose tracking")
     parser.add_argument("-path", type=dir_path, help="input directory with videos for handpose tracking")
+    parser.add_argument("--with_renderer", type=str2bool, default=False, help="Run with or without rendered. Default is False.")
     args = parser.parse_args()
 
     if args.verbosity:
@@ -257,7 +269,7 @@ if __name__ == '__main__':
         title = temp2.split('.')[0]
         acq = OpenCVGrabber(filename, calib_file="res/calib_webcam_mshd_vga.json")
         acq.initialize()
-        mono_hand_loop(acq, (640,480), config, title, track=True, with_renderer=False)
+        mono_hand_loop(acq, (640,480), config, title, track=True, with_renderer=args.with_renderer)
 
     if args.path:
         files = glob.glob(args.path + "*")
@@ -268,4 +280,4 @@ if __name__ == '__main__':
             title = temp2.split('.')[0]
             acq = OpenCVGrabber(filename, calib_file="res/calib_webcam_mshd_vga.json")
             acq.initialize()
-            mono_hand_loop(acq, (640,480), config, title, track=True, with_renderer=False)
+            mono_hand_loop(acq, (640,480), config, title, track=True, with_renderer=args.with_renderer)

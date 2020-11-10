@@ -32,6 +32,8 @@ import PyOpenPose as OP
 
 from common import mva19 
 
+import argparse
+import logging as log
 
 def mono_hand_loop(acq, outSize, config, track=False, paused=False, with_renderer=False):
 
@@ -183,8 +185,16 @@ def mono_hand_loop(acq, outSize, config, track=False, paused=False, with_rendere
 
         count += 1
 
-
-
+# Sourced from https://stackoverflow.com/a/43357954
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 if __name__ == '__main__':
 
@@ -208,9 +218,47 @@ if __name__ == '__main__':
 
     }
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-v", "--verbosity", action="count", help="increase output verbosity (e.g., -vv is more than -v)")
+    parser.add_argument("--video", help="input video for 3d handpose tracking")
+    parser.add_argument("-path", type=dir_path, help="input directory with videos for handpose tracking")
+    parser.add_argument("--with_renderer", type=str2bool, default=False, help="Run with or without rendered. Default is False.") 
+    args = parser.parse_args()
+
+    if args.verbosity:
+        log.basicConfig(format="%(levelname)s: %(message)s", level=log.DEBUG)
+        log.info("Verbose output.")
+    else:
+        log.basicConfig(format="%(levelname)s: %(message)s")
+
+    log.info("This should be verbose.")
+    log.warning("This is a warning.")
+    log.error("This is an error.")
+
+    # NOTE: You can replace the camera id with a video filename.
+    filename = "test-video.mp4"
+    if args.video:
+        filename = args.video
+        temp = filename.split('/')
+        temp2 = temp[len(temp) - 1]
+        title = temp2.split('.')[0]
+        acq = OpenCVGrabber(filename, calib_file="res/calib_webcam_mshd_vga.json")
+        acq.initialize()
+        mono_hand_loop(acq, (640,480), config, title, track=True, with_renderer=False)
+
+    if args.path:
+        files = glob.glob(args.path + "*")
+
+        for filename in files:
+            temp = filename.split('/')
+            temp2 = temp[len(temp) - 1]
+            title = temp2.split('.')[0]
+            acq = OpenCVGrabber(filename, calib_file="res/calib_webcam_mshd_vga.json")
+            acq.initialize()
+            mono_hand_loop(acq, (640,480), config, title, track=True, with_renderer=False)
     
     # NOTE: You can replace the camera id with a video filename. 
-    acq = OpenCVGrabber(0, calib_file="res/calib_webcam_mshd_vga.json")
-    acq.initialize()
-    mono_hand_loop(acq, (640,480), config,  track=True, with_renderer=True)
+    #acq = OpenCVGrabber(0, calib_file="res/calib_webcam_mshd_vga.json")
+    #acq.initialize()
+    #mono_hand_loop(acq, (640,480), config,  track=True, with_renderer=True)
 
